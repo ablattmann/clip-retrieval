@@ -75,7 +75,7 @@ def main(
     num_prepro_workers=8,
     enable_text=True,
     enable_image=True,
-    enable_metadata=False,
+    enable_metadata=True,
     write_batch_size=10**6,
     wds_image_key="jpg",
     wds_caption_key="txt",
@@ -88,6 +88,9 @@ def main(
     output_partition_count=None,
     wandb_project="clip_retrieval",
     enable_wandb=False,
+    mapper_type='CLIP',
+    tokenizer_version='google/t5-v1_1-small',
+    strans_model='sentence-transformers/all-mpnet-base-v2',
     clip_cache_path=None,
     slurm_job_name=None,
     slurm_partition=None,
@@ -101,6 +104,21 @@ def main(
 ):
     # package arguments to pass on to the distributor
     local_args = dict(locals())
+    mapper_types = ['CLIP', 'STRANS', 'BM25']
+    assert mapper_type in mapper_types, f'mapper type must be in {mapper_types}'
+
+    if mapper_type == 'BM25':
+        print(f'using {mapper_type} mappers with tokemizer {tokenizer_version}')
+        local_args['enable_image'] = False
+        enable_image = False
+        local_args['enable_text'] = True
+        enable_text=True
+    elif mapper_type == 'STRANS':
+        print(f'using {mapper_type} mappers with model {strans_model}')
+        local_args['enable_image'] = False
+        enable_image = False
+        local_args['enable_text'] = True
+        enable_text = True
 
     expanded_dataset = list(braceexpand(input_dataset)) if input_format == "webdataset" else input_dataset
 

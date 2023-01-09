@@ -8,6 +8,14 @@ import pyarrow as pa
 from tqdm import tqdm
 import fire
 import math
+import fsspec
+
+def make_path_absolute(path):
+    fs, p = fsspec.core.url_to_fs(path)
+    if fs.protocol == "file":
+        return os.path.abspath(p)
+    return path
+
 
 
 def file_to_count(filename):
@@ -24,9 +32,21 @@ def count_samples(files):
     return total_count
 
 
-def parquet_to_arrow(parquet_folder, output_arrow_folder, columns_to_return):
+def parquet_to_arrow(parquet_folder, output_arrow_folder, columns_to_return=None):
     """convert the parquet files into arrow files"""
-    os.makedirs(output_arrow_folder, exist_ok=True)
+    if columns_to_return is None:
+        columns_to_return = ['caption', 'similarity', 'punsafe', 'pwatermark', 'AESTHETIC_SCORE',
+                     'lang', 'lang_score', 'simple_lang', 'simple_lang_score', 'raw_caption',
+                     'url', 'key', 'status', 'error_message', 'width', 'height',
+                     'original_width', 'original_height', 'exif', 'md5']
+    # parquet_folder = make_path_absolute(parquet_folder)
+    parquet_fs, parquet_folder = fsspec.core.url_to_fs(parquet_folder)
+
+    # output_arrow_folder = make_path_absolute(output_arrow_folder)
+    arrow_fs, output_arrow_folder = fsspec.core.url_to_fs(output_arrow_folder)
+
+    arrow_fs.makedirs(output_arrow_folder, exist_ok=True)
+
     data_dir = Path(parquet_folder)
     files = sorted(data_dir.glob("*.parquet"))
     number_samples = count_samples(files)
@@ -42,9 +62,10 @@ def parquet_to_arrow(parquet_folder, output_arrow_folder, columns_to_return):
             if sink is not None:
                 writer.close()
                 sink.close()
-            file_key = "{true_key:0{key_format}d}".format(  # pylint: disable=consider-using-f-string
-                key_format=key_format, true_key=batch_counter
-            )
+            file_key = f"{batch_counter:02d}"
+            #     .format(  # pylint: disable=consider-using-f-string
+            #     key_format=key_format, true_key=batch_counter
+            # )
             file_name = f"{output_arrow_folder}/{file_key}.arrow"
             print(f"Writing to {file_name}")
             sink = pa.OSFile(file_name, "wb")

@@ -46,22 +46,30 @@ def clip_index(
     nb_cores=None,
 ):
     """indexes clip embeddings using autofaiss"""
-    quantize(
-        embeddings_folder + "/" + image_subfolder,
-        index_folder,
-        "image",
-        max_index_memory_usage,
-        current_memory_available,
-        nb_cores,
-    )
-    quantize(
-        embeddings_folder + "/" + text_subfolder,
-        index_folder,
-        "text",
-        max_index_memory_usage,
-        current_memory_available,
-        nb_cores,
-    )
+
+    if os.path.isdir(embeddings_folder + "/" + image_subfolder):
+        quantize(
+            embeddings_folder + "/" + image_subfolder,
+            index_folder,
+            "image",
+            max_index_memory_usage,
+            current_memory_available,
+            nb_cores,
+        )
+    else:
+        print('skipping image index since no image embeddings')
+
+    if os.path.isdir(embeddings_folder + '/' + text_subfolder):
+        quantize(
+            embeddings_folder + "/" + text_subfolder,
+            index_folder,
+            "text",
+            max_index_memory_usage,
+            current_memory_available,
+            nb_cores,
+        )
+    else:
+        print('skipping text lindex since no text embeddings')
     if copy_metadata:
         copy_tree(embeddings_folder + "/metadata", index_folder + "/metadata")
 

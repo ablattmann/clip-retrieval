@@ -12,11 +12,17 @@ import fire
 from braceexpand import braceexpand
 
 from clip_retrieval.clip_inference.runner import Runner
-from clip_retrieval.clip_inference.mapper import ClipMapper
+from clip_retrieval.clip_inference.mapper import ClipMapper, BM25Mapper, SentenceTransformerMapper
 from clip_retrieval.clip_inference.writer import NumpyWriter
 from clip_retrieval.clip_inference.logger import LoggerWriter
 from clip_retrieval.clip_inference.reader import FilesReader, WebdatasetReader
 from clip_retrieval.load_clip import load_clip
+
+__MAPPERS__ ={
+    'CLIP' : ClipMapper,
+    'BM25' : BM25Mapper,
+    'STRANS': SentenceTransformerMapper
+}
 
 
 def worker(
@@ -37,7 +43,10 @@ def worker(
     mclip_model="sentence-transformers/clip-ViT-B-32-multilingual-v1",
     use_mclip=False,
     use_jit=True,
+    drop_existing_meta_cols=True,
     clip_cache_path=None,
+    mapper_type='CLIP',
+    **mapper_kwargs
 ):
     """Start a worker"""
     print("Starting the worker", flush=True)
@@ -49,7 +58,10 @@ def worker(
     print(f"dataset is {len(input_dataset)}", flush=True)
 
     def reader_builder(sampler):
-        _, preprocess = load_clip(
+        if mapper_type != 'CLIP':
+            preprocess = lambda x: x
+        else:
+            _, preprocess = load_clip(
             clip_model=clip_model, use_jit=use_jit, warmup_batch_size=batch_size, clip_cache_path=clip_cache_path
         )
         if input_format == "files":
@@ -81,7 +93,7 @@ def worker(
             raise ValueError(f"Unknown input_format: {input_format}")
 
     def mapper_builder():
-        return ClipMapper(
+        return __MAPPERS__[mapper_type](
             enable_image=enable_image,
             enable_text=enable_text,
             enable_metadata=enable_metadata,
@@ -91,6 +103,7 @@ def worker(
             mclip_model=mclip_model,
             clip_cache_path=clip_cache_path,
             warmup_batch_size=batch_size,
+            **mapper_kwargs
         )
 
     def writer_builder(i):
@@ -101,6 +114,7 @@ def worker(
             enable_image=enable_image,
             enable_metadata=enable_metadata,
             output_partition_count=output_partition_count,
+            drop_existing_cols=drop_existing_meta_cols
         )
 
     def logger_builder(i):

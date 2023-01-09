@@ -760,7 +760,7 @@ def load_safety_model(clip_model):
 
 
 @dataclass
-class ClipResource:
+class EmbedderResource:
     """the resource for clip : model, index, options"""
 
     device: str
@@ -776,10 +776,12 @@ class ClipResource:
     columns_to_return: List[str]
     metadata_is_ordered_by_ivf: bool
     aesthetic_embeddings: Any
+    stformer_model: Any
+    use_stformer: bool
 
 
 @dataclass
-class ClipOptions:
+class EmbedderOptions:
     """the options for clip"""
 
     indice_folder: str
@@ -794,10 +796,12 @@ class ClipOptions:
     provide_safety_model: bool
     provide_violence_detector: bool
     provide_aesthetic_embeddings: bool
+    mapper_type: str
+    stformer_model: str
 
 
-def dict_to_clip_options(d, clip_options):
-    return ClipOptions(
+def dict_to_embedder_options(d, clip_options):
+    return EmbedderOptions(
         indice_folder=d["indice_folder"] if "indice_folder" in d else clip_options.indice_folder,
         clip_model=d["clip_model"] if "clip_model" in d else clip_options.clip_model,
         enable_hdf5=d["enable_hdf5"] if "enable_hdf5" in d else clip_options.enable_hdf5,
@@ -822,6 +826,8 @@ def dict_to_clip_options(d, clip_options):
         provide_aesthetic_embeddings=d["provide_aesthetic_embeddings"]
         if "provide_aesthetic_embeddings" in d
         else clip_options.provide_aesthetic_embeddings,
+        mapper_type=d['mapper_type'] if 'mapper_type' in d else clip_options.mapper_type,
+        stformer_model=d['stformer_model'] if 'stformer_model' in d else clip_options.stformer_model
     )
 
 
@@ -851,18 +857,31 @@ def load_mclip(clip_model):
     return model_txt_mclip
 
 
-def load_clip_index(clip_options):
+def load_embedded_index(clip_options):
     """load the clip index"""
     import torch  # pylint: disable=import-outside-toplevel
-    from clip_retrieval.load_clip import load_clip  # pylint: disable=import-outside-toplevel
+    from clip_retrieval.load_clip import load_clip, load_stformer  # pylint: disable=import-outside-toplevel
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model, preprocess = load_clip(clip_options.clip_model, use_jit=clip_options.use_jit, device=device)
 
-    if clip_options.enable_mclip_option:
-        model_txt_mclip = load_mclip(clip_options.clip_model)
+    model_txt_mclip = None
+    stformer_model = None
+    use_stformer_model = False
+    if clip_options.mapper_type == 'CLIP':
+        model, preprocess = load_clip(clip_options.clip_model, use_jit=clip_options.use_jit, device=device)
+
+        if clip_options.enable_mclip_option:
+            model_txt_mclip = load_mclip(clip_options.clip_model)
+        else:
+            model_txt_mclip = None
+    elif clip_options.mapper_type =='STFORMER':
+        stformer_model = load_stformer(clip_options.stformer_model,device=device)
+        use_stformer_model = True
+        model=None
+        preprocess = None
     else:
-        model_txt_mclip = None
+        raise ValueError(f'clip_options.mapper_type has tp be in ["CLIP","STFORMER"] but is actually {clip_options.mapper_type}')
+
 
     safety_model = load_safety_model(clip_options.clip_model) if clip_options.provide_safety_model else None
     violence_detector = (
@@ -898,7 +917,7 @@ def load_clip_index(clip_options):
         clip_options.use_arrow,
     )
 
-    return ClipResource(
+    return EmbedderResource(
         device=device,
         model=model,
         preprocess=preprocess,
@@ -912,13 +931,15 @@ def load_clip_index(clip_options):
         columns_to_return=clip_options.columns_to_return,
         metadata_is_ordered_by_ivf=clip_options.reorder_metadata_by_ivf_index,
         aesthetic_embeddings=aesthetic_embeddings,
+        stformer_model=stformer_model,
+        use_stformer=use_stformer_model
     )
 
 
-def load_clip_indices(
+def load_indices(
     indices_paths,
     clip_options,
-) -> Dict[str, ClipResource]:
+) -> Dict[str, EmbedderResource]:
     """This load clips indices from disk"""
     LOGGER.info("loading clip...")
 
@@ -930,12 +951,12 @@ def load_clip_indices(
     for name, indice_value in indices.items():
         # if indice_folder is a string
         if isinstance(indice_value, str):
-            clip_options = dict_to_clip_options({"indice_folder": indice_value}, clip_options)
+            clip_options = dict_to_embedder_options({"indice_folder": indice_value}, clip_options)
         elif isinstance(indice_value, dict):
-            clip_options = dict_to_clip_options(indice_value, clip_options)
+            clip_options = dict_to_embedder_options(indice_value, clip_options)
         else:
             raise ValueError("Unknown type for indice_folder")
-        clip_resources[name] = load_clip_index(clip_options)
+        clip_resources[name] = load_embedded_index(clip_options)
 
     return clip_resources
 
@@ -957,14 +978,16 @@ def clip_back(
     provide_safety_model=False,
     provide_violence_detector=False,
     provide_aesthetic_embeddings=True,
+    mapper_type='CLIP',
+    stformer_model='sentence-transformers/all-mpnet-base-v2'
 ):
     """main entry point of clip back, start the endpoints"""
     print("starting boot of clip back")
     if columns_to_return is None:
         columns_to_return = ["url", "image_path", "caption", "NSFW"]
-    clip_resources = load_clip_indices(
+    clip_resources = load_indices(
         indices_paths=indices_paths,
-        clip_options=ClipOptions(
+        clip_options=EmbedderOptions(
             indice_folder="",
             clip_model=clip_model,
             enable_hdf5=enable_hdf5,
@@ -977,6 +1000,8 @@ def clip_back(
             provide_safety_model=provide_safety_model,
             provide_violence_detector=provide_violence_detector,
             provide_aesthetic_embeddings=provide_aesthetic_embeddings,
+            mapper_type=mapper_type,
+            stformer_model=stformer_model
         ),
     )
     print("indices loaded")

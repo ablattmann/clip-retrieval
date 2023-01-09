@@ -41,7 +41,11 @@ class PysparkDistributor:
             print("No pyspark session found, creating a new one!")
             spark = (
                 SparkSession.builder.config("spark.driver.memory", "16G")
-                .master("local[" + str(2) + "]")
+                .master("local[" + str(8) + "]")
+                # # .config("spark.master.gpu.amount", "8")
+                # .config('spark.executor.resource.gpu.amount', 1)
+                # .config('spark.executor.cores',32)
+                # .config('spark.task.resource.gpu.amount', 1./32)
                 .appName("spark-stats")
                 .getOrCreate()
             )

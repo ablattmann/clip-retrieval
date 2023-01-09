@@ -6,6 +6,8 @@ import clip
 from PIL import Image
 import time
 
+from sentence_transformers import SentenceTransformer
+
 
 class OpenClipWrapper(nn.Module):
     """
@@ -78,6 +80,26 @@ def load_clip(clip_model="ViT-B/32", use_jit=True, warmup_batch_size=1, clip_cac
     duration = time.time() - start
     print(f"done warming up in {duration}s", flush=True)
     return model, preprocess
+
+@lru_cache(maxsize=None)
+def load_stformer(stformer_model='sentence-transformers/all-mpnet-base-v2',warmup_batch_size=1,device=None):
+    if device is None:
+        device= 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    model = SentenceTransformer(stformer_model).to(device)
+    model = model.encode
+
+
+
+    start = time.time()
+    print(f"warming up with batch size {warmup_batch_size} on {device}", flush=True)
+    fake_text = ['fake'] * warmup_batch_size
+    with torch.no_grad():
+        model(fake_text)
+    duration = time.time() - start
+    print(f"done warming up in {duration}s", flush=True)
+
+    return model
 
 
 def warmup(batch_size, device, preprocess, model):

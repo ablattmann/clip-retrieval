@@ -1,0 +1,1 @@
+s3://stability-aws/laion-a-native/all-mpnet-base-v2-embeddings/

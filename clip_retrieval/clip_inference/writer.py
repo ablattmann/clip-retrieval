@@ -9,7 +9,8 @@ import math
 class OutputSink:
     """This output sink can save image, text embeddings as npy and metadata as parquet"""
 
-    def __init__(self, output_folder, enable_text, enable_image, enable_metadata, partition_id, output_partition_count):
+    def __init__(self, output_folder, enable_text, enable_image, enable_metadata, partition_id, output_partition_count,
+                 drop_existing_cols=False):
         self.enable_text = enable_text
         self.enable_image = enable_image
         self.enable_metadata = enable_metadata
@@ -20,6 +21,7 @@ class OutputSink:
         self.metadata_folder = output_folder + "/metadata"
         self.batch_num = partition_id
         self.oom_partition_count = int(math.log10(output_partition_count)) + 1
+        self.drop_existing_cols = drop_existing_cols
 
         if enable_image:
             self.fs.makedirs(self.img_emb_folder, exist_ok=True)
@@ -38,6 +40,7 @@ class OutputSink:
         self.image_names = []
         self.captions = []
         self.metadata = []
+        self.doc_lens = []
         self.batch_count = 0
 
     def add(self, sample):
@@ -52,6 +55,8 @@ class OutputSink:
         if self.enable_text:
             self.captions.extend(sample["text"])
             self.text_embeddings.append(sample["text_embs"])
+            if 'doc_lens' in sample:
+                self.doc_lens.extend(sample['doc_lens'])
         if self.enable_metadata:
             self.metadata.extend(sample["metadata"])
 
@@ -89,6 +94,10 @@ class OutputSink:
             data_lists.append(self.captions)
             data_columns.append("caption")
 
+            if len(self.doc_lens) > 0:
+                data_lists.append(self.doc_lens)
+                data_columns.append('doc_lens')
+
         if self.enable_metadata:
             data_lists.append(self.metadata)
             data_columns.append("metadata")
@@ -96,9 +105,11 @@ class OutputSink:
         df = pd.DataFrame(data=list(zip(*data_lists)), columns=data_columns)
         if self.enable_metadata:
             parsed_metadata = pd.json_normalize(df["metadata"].apply(json.loads))
-            without_existing_columns = parsed_metadata.drop(
-                columns=set(["caption", "metadata", "image_path"]) & set(parsed_metadata.keys())
-            )
+
+            if self.drop_existing_cols:
+                without_existing_columns = parsed_metadata.drop(
+                    columns=set(["caption", "metadata", "image_path"]) & set(parsed_metadata.keys())
+                )
             df = df.join(without_existing_columns).drop(columns=["metadata"])
 
         output_path_metadata = self.metadata_folder + "/metadata_" + batch_num_str + ".parquet"
@@ -115,9 +126,9 @@ class OutputSink:
 class NumpyWriter:
     """the numpy writer writes embeddings to folders img_emb, text_emb, and metadata"""
 
-    def __init__(self, partition_id, output_folder, enable_text, enable_image, enable_metadata, output_partition_count):
+    def __init__(self, partition_id, output_folder, enable_text, enable_image, enable_metadata, output_partition_count,drop_existing_cols=True):
         self.sink = OutputSink(
-            output_folder, enable_text, enable_image, enable_metadata, partition_id, output_partition_count
+            output_folder, enable_text, enable_image, enable_metadata, partition_id, output_partition_count,drop_existing_cols=drop_existing_cols
         )
 
     def __call__(self, batch):

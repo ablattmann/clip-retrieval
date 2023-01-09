@@ -1,8 +1,12 @@
 """mapper module transform images and text to embeddings"""
 
 import torch
+import numpy as np
 from clip_retrieval.load_clip import load_clip
 from sentence_transformers import SentenceTransformer
+from abc import abstractmethod
+
+from clip_retrieval.clip_inference.text_mappers import __TEXT_EMBEDDERS__
 
 
 def normalized(a, axis=-1, order=2):
@@ -12,25 +16,117 @@ def normalized(a, axis=-1, order=2):
     l2[l2 == 0] = 1
     return a / np.expand_dims(l2, axis)
 
+class BaseMapper:
 
-class ClipMapper:
+    def __init__(self, enable_image, enable_text, enable_metadata,*args, **kwargs):
+        self.enable_image = enable_image
+        self.enable_text = enable_text
+        self.enable_metadata = enable_metadata
+
+    @abstractmethod
+    def __call__(self, item):
+        raise NotImplementedError('base class should never be called')
+
+# TODO fix this
+class BM25Mapper(BaseMapper):
+    """transforms images and texts into embeddings for BM25-based retrieval"""
+    def __init__(self,
+                 clip_model,
+                 *args,
+                 **kwargs):
+        super().__init__(*args, **kwargs)
+        assert not self.enable_image, f'{self.__class__.__name__} is a text-only mapping'
+        self.model = __TEXT_EMBEDDERS__[clip_model](**kwargs)
+
+        print(f'Load {self.model.__class__.__name__} with vocab size {self.model.vocab_size}')
+
+
+    def __call__(self, item):
+        image_embs = None
+        metadata = item["metadata"]
+
+        with torch.no_grad():
+            text_tokens, doc_lens = self.model.encode(item['text'],return_lengths=True)
+
+        # TODO this assumes that metadata is a dict
+        bow = []
+
+        for i, (tt, dl) in enumerate(zip(text_tokens,doc_lens)):
+            # metadata[i].update({'doc_len': dl})
+            bow.append(np.bincount(np.asarray(tt),minlength=self.model.vocab_size).astype(np.float16))
+
+        bow = np.stack(bow,axis=0)
+
+        # metadata['doc_len'] = doc_lens.cpu().numpy().astype(int)
+        #
+        # bow = np.apply_along_axis(np.bincount, 1, text_tokens.cpu().numpy(), minlength=self.model.vocab_size).astype(int)
+        # occs_in_batch = np.clip(bow, 0, 1).sum(0).astype(int)
+
+        # TODO this assumes that metadata is a dict this will likely fail
+        # metadata['occurence_per_token'] = occs_in_batch
+        text = item['text']
+
+        return {
+            "image_embs": image_embs,
+            "text_embs": bow,
+            "image_filename": None,
+            "text": text,
+            "metadata": metadata,
+            'doc_lens': doc_lens
+        }
+
+class SentenceTransformerMapper(BaseMapper):
+    """Transforms text into embeddings of a given sentence transformers model as specified by strans_model"""
+    def __init__(self,
+                strans_model,
+                 *args,
+                 **kwargs):
+        super().__init__(*args, **kwargs)
+        assert not self.enable_image, f'{self.__class__.__name__} is a text-only mapping'
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f'Loading {strans_model} from SentenceTransformers for creating embeddings')
+        model = SentenceTransformer(strans_model)
+        self.model = model.encode
+
+    @torch.no_grad()
+    def __call__(self, item):
+        text = None
+        text_embs = None
+        metadata = None
+        if self.enable_text:
+            text_embs = normalized(self.model(item["text"])).astype(np.float16)
+            text = item['text']
+
+        if self.enable_metadata:
+            metadata = item['metadata']
+
+        return {
+            "image_embs": None,
+            "text_embs": text_embs,
+            "image_filename": None,
+            "text": text,
+            "metadata": metadata,
+        }
+
+
+
+
+
+class ClipMapper(BaseMapper):
     """transforms images and texts into clip embeddings"""
 
     def __init__(
         self,
-        enable_image,
-        enable_text,
-        enable_metadata,
         use_mclip,
         clip_model,
         use_jit,
         mclip_model,
+        *args,
         warmup_batch_size=1,
         clip_cache_path=None,
+        **kwargs
     ):
-        self.enable_image = enable_image
-        self.enable_text = enable_text
-        self.enable_metadata = enable_metadata
+        super().__init__(*args,**kwargs)
         self.use_mclip = use_mclip
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         model, _ = load_clip(
