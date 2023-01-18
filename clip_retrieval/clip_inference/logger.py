@@ -134,8 +134,10 @@ class LoggerReader:
                         stats_aggregated[k2] += v[k2]
 
                 for v in stats.values():
-                    start_time_no_initial_load = min(start_time_no_initial_load, v["start_time"])
-
+                    try:
+                        start_time_no_initial_load = min(start_time_no_initial_load, v["start_time"])
+                    except KeyError as e:
+                        start_time_no_initial_load = start_time_no_initial_load
                 current_time = time.perf_counter()
                 current_real_time = time.time()
                 total_duration = current_time - self.start_time

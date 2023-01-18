@@ -15,7 +15,7 @@ from clip_retrieval.clip_inference.runner import Runner
 from clip_retrieval.clip_inference.mapper import ClipMapper, BM25Mapper, SentenceTransformerMapper
 from clip_retrieval.clip_inference.writer import NumpyWriter
 from clip_retrieval.clip_inference.logger import LoggerWriter
-from clip_retrieval.clip_inference.reader import FilesReader, WebdatasetReader
+from clip_retrieval.clip_inference.reader import FilesReader, WebdatasetReader, expand_urls
 from clip_retrieval.load_clip import load_clip
 
 __MAPPERS__ ={
@@ -53,7 +53,7 @@ def worker(
 
     # check for brace expansion
     if input_format == "webdataset" and not isinstance(input_dataset, list):
-        input_dataset = list(braceexpand(input_dataset))
+        input_dataset = list(expand_urls(input_dataset))
 
     print(f"dataset is {len(input_dataset)}", flush=True)
 

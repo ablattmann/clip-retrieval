@@ -5,7 +5,7 @@ import math
 from braceexpand import braceexpand
 
 from clip_retrieval.clip_inference.logger import LoggerReader
-from clip_retrieval.clip_inference.reader import folder_to_keys
+from clip_retrieval.clip_inference.reader import folder_to_keys, expand_urls
 from clip_retrieval.clip_inference.slurm_distributor import SlurmDistributor
 from clip_retrieval.clip_inference.distributor import PysparkDistributor, SequentialDistributor
 
@@ -120,7 +120,8 @@ def main(
         local_args['enable_text'] = True
         enable_text = True
 
-    expanded_dataset = list(braceexpand(input_dataset)) if input_format == "webdataset" else input_dataset
+    expanded_dataset = list(expand_urls(input_dataset)) if input_format == "webdataset" else input_dataset
+
 
     # compute this now for the distributors to use
     if output_partition_count is None:

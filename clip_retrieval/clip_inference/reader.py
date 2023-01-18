@@ -1,11 +1,12 @@
 """Reader module provides files and webdataset readers"""
-
+import os
 from pathlib import Path
 from PIL import Image
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 import io
 
+import braceexpand
 
 def folder_to_keys(folder, enable_text=True, enable_image=True, enable_metadata=False):
     """returns a list of keys from a folder of images and text"""
@@ -108,6 +109,16 @@ def get_image_dataset():
 
     return ImageDataset
 
+def expand_urls(urls):
+    if isinstance(urls, str):
+        urllist = urls.split("::")
+        result = []
+        for url in urllist:
+            # url = url.replace("s3", "s3a")
+            result.extend(braceexpand.braceexpand(url))
+        return result
+    else:
+        return list(urls)
 
 def create_webdataset(
     urls,
@@ -124,7 +135,17 @@ def create_webdataset(
     import clip  # pylint: disable=import-outside-toplevel
     import webdataset as wds  # pylint: disable=import-outside-toplevel
 
+
+
+    urls = expand_urls(urls)
     urls = input_sampler(urls)
+
+    try:
+        id_ = os.environ['SLURM_PROCID']
+    except KeyError as e:
+        id_ = 0
+    print(f'urls of reader for task {id_}:',flush=True)
+    print(urls,flush=True)
 
     dataset = wds.WebDataset(urls, cache_dir=cache_path, cache_size=10**10, handler=wds.handlers.warn_and_continue)
     tokenizer = lambda text: clip.tokenize([text], truncate=True)[0]

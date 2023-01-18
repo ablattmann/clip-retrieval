@@ -150,8 +150,7 @@ class SlurmDistributor:
 #SBATCH --output={cache_path}/slurm-%x_%j.out
 #SBATCH --nodes={slurm_args["nodes"]}
 #SBATCH --ntasks-per-node=8
-#SBATCH --cpus-per-gpu=6
-#SBATCH --gres=gpu:8
+#SBATCH --cpus-per-gpu=12
 #SBATCH --exclusive
 
 {sbatch_scomment}
@@ -165,5 +164,5 @@ export WORKER_ARGS_PATH={worker_args_path}
 
 # Run the internal script
 source {venv}/bin/activate
-srun --cpu_bind=v --accel-bind=gn {scomment} clip-retrieval inference.slurm_worker
+srun --cpu-bind=v --accel-bind=gn {scomment} clip-retrieval inference.slurm_worker
 """
