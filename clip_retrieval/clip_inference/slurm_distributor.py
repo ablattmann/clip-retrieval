@@ -152,7 +152,7 @@ class SlurmDistributor:
 #SBATCH --ntasks-per-node=8
 #SBATCH --cpus-per-gpu=12
 #SBATCH --exclusive
-#SBATCH --exclude=ip-26-0-141-174,ip-26-0-136-44,ip
+#SBATCH --exclude=ip-26-0-141-174,ip-26-0-136-44    
 
 {sbatch_scomment}
 {nodelist}
