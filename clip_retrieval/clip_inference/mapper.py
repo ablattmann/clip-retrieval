@@ -190,12 +190,17 @@ class ISCMapper(BaseMapper):
                 image_features /= image_features.norm(dim=-1, keepdim=True)
                 image_embs = image_features.cpu().to(torch.float16).numpy()
                 image_filename = item["image_filename"]
+            if self.enable_text:
+                text = item["text"]
             if self.enable_metadata:
                 metadata = item["metadata"]
 
             return {
                 "image_embs": image_embs,
-                "image_filename": image_filename
+                "text_embs": text_embs,
+                "image_filename": image_filename,
+                "text": text,
+                "metadata": metadata,
             }
 
 class MobileNetV3Mapper(BaseMapper):
@@ -216,13 +221,19 @@ class MobileNetV3Mapper(BaseMapper):
                 image_features /= image_features.norm(dim=-1, keepdim=True)
                 image_embs = image_features.cpu().to(torch.float16).numpy()
                 image_filename = item["image_filename"]
+            if self.enable_text:
+                text = item["text"]
+
             if self.enable_metadata:
                 metadata = item["metadata"]
 
-
             return {
                 "image_embs": image_embs,
-                "image_filename": image_filename }
+                "text_embs": text_embs,
+                "image_filename": image_filename,
+                "text": text,
+                "metadata": metadata,
+            }
 
 class SSCDMapper(BaseMapper):
     # load an img encoder model
@@ -248,7 +259,16 @@ class SSCDMapper(BaseMapper):
                 image_embs = image_features.cpu().to(torch.float16).numpy()
                 image_filename = item["image_filename"]
 
+            if self.enable_text:
+                text = item["text"]
+                
+            if self.enable_metadata:
+                metadata = item["metadata"]
+
             return {
                 "image_embs": image_embs,
-                "image_filename": image_filename
+                "text_embs": text_embs,
+                "image_filename": image_filename,
+                "text": text,
+                "metadata": metadata,
             }

@@ -124,22 +124,19 @@ def main(
         print(f'using {mapper_type} mappers with model')
         local_args['enable_image'] = True
         enable_image = True
-        local_args['enable_text'] = False
-        enable_text = False
+
 
     elif mapper_type == 'ISC':
         print(f'using {mapper_type} mappers with model')
         local_args['enable_image'] = True
         enable_image = True
-        local_args['enable_text'] = False
-        enable_text = False
+
 
     elif mapper_type == 'Mobilenetv3':
         print(f'using {mapper_type} mappers with model')
         local_args['enable_image'] = True
         enable_image = True
-        local_args['enable_text'] = False
-        enable_text = False
+
 
     
 
