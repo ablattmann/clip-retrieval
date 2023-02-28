@@ -12,18 +12,20 @@ import fire
 from braceexpand import braceexpand
 
 from clip_retrieval.clip_inference.runner import Runner
-from clip_retrieval.clip_inference.mapper import ClipMapper, BM25Mapper, SentenceTransformerMapper
+from clip_retrieval.clip_inference.mapper import ClipMapper, BM25Mapper, SentenceTransformerMapper, ISCMapper,SSCDMapper,MobileNetV3Mapper
 from clip_retrieval.clip_inference.writer import NumpyWriter
 from clip_retrieval.clip_inference.logger import LoggerWriter
 from clip_retrieval.clip_inference.reader import FilesReader, WebdatasetReader, expand_urls
 from clip_retrieval.load_clip import load_clip
-
+from clip_retrieval.clip_inference.emmodel import create_model_isc,create_model_sscd,create_model_mobilenet
 __MAPPERS__ ={
     'CLIP' : ClipMapper,
     'BM25' : BM25Mapper,
-    'STRANS': SentenceTransformerMapper
+    'STRANS': SentenceTransformerMapper,
+    'ISC'  : ISCMapper,
+    'Mobilenetv3': MobileNetV3Mapper,
+    'SSCD' : SSCDMapper
 }
-
 
 def worker(
     tasks,
@@ -58,8 +60,12 @@ def worker(
     print(f"dataset is {len(input_dataset)}", flush=True)
 
     def reader_builder(sampler):
-        if mapper_type != 'CLIP':
-            preprocess = lambda x: x
+        if mapper_type == 'ISC':
+            _, preprocess = create_model_isc()
+        if mapper_type == 'SSCD':
+            _, preprocess = create_model_sscd()
+        if mapper_type == 'Mobilenetv3':
+            _, preprocess = create_model_mobilenet()
         else:
             _, preprocess = load_clip(
             clip_model=clip_model, use_jit=use_jit, warmup_batch_size=batch_size, clip_cache_path=clip_cache_path

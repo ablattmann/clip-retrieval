@@ -88,7 +88,7 @@ def main(
     output_partition_count=None,
     wandb_project="clip_retrieval",
     enable_wandb=False,
-    mapper_type='CLIP',
+    mapper_type='ISC',
     tokenizer_version='google/t5-v1_1-small',
     strans_model='sentence-transformers/all-mpnet-base-v2',
     clip_cache_path=None,
@@ -104,7 +104,7 @@ def main(
 ):
     # package arguments to pass on to the distributor
     local_args = dict(locals())
-    mapper_types = ['CLIP', 'STRANS', 'BM25']
+    mapper_types = ['CLIP', 'STRANS', 'BM25','SSCD','ISC','Mobilenetv3']
     assert mapper_type in mapper_types, f'mapper type must be in {mapper_types}'
 
     if mapper_type == 'BM25':
@@ -119,6 +119,29 @@ def main(
         enable_image = False
         local_args['enable_text'] = True
         enable_text = True
+
+    elif mapper_type == 'SSCD':
+        print(f'using {mapper_type} mappers with model')
+        local_args['enable_image'] = True
+        enable_image = True
+        local_args['enable_text'] = False
+        enable_text = False
+
+    elif mapper_type == 'ISC':
+        print(f'using {mapper_type} mappers with model')
+        local_args['enable_image'] = True
+        enable_image = True
+        local_args['enable_text'] = False
+        enable_text = False
+
+    elif mapper_type == 'Mobilenetv3':
+        print(f'using {mapper_type} mappers with model')
+        local_args['enable_image'] = True
+        enable_image = True
+        local_args['enable_text'] = False
+        enable_text = False
+
+    
 
     expanded_dataset = list(expand_urls(input_dataset)) if input_format == "webdataset" else input_dataset
 

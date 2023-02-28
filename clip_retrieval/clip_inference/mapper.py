@@ -5,9 +5,8 @@ import numpy as np
 from clip_retrieval.load_clip import load_clip
 from sentence_transformers import SentenceTransformer
 from abc import abstractmethod
-
 from clip_retrieval.clip_inference.text_mappers import __TEXT_EMBEDDERS__
-
+from clip_retrieval.clip_inference.emmodel import create_model_isc,create_model_sscd,create_model_mobilenet
 
 def normalized(a, axis=-1, order=2):
     import numpy as np  # pylint: disable=import-outside-toplevel
@@ -168,4 +167,88 @@ class ClipMapper(BaseMapper):
                 "image_filename": image_filename,
                 "text": text,
                 "metadata": metadata,
+            }
+
+class ISCMapper(BaseMapper):
+    # load an img encoder model
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model,self.preprocessor = create_model_isc()
+        self.model.eval()
+        self.model.to(self.device)
+
+    def __call__(self, item):
+        with torch.no_grad():
+            image_embs = None
+            text_embs = None
+            image_filename = None
+            text = None
+            metadata = None
+            if self.enable_image:
+                image_features = self.model(item["image_tensor"].to(self.device))
+                image_features /= image_features.norm(dim=-1, keepdim=True)
+                image_embs = image_features.cpu().to(torch.float16).numpy()
+                image_filename = item["image_filename"]
+            if self.enable_metadata:
+                metadata = item["metadata"]
+
+            return {
+                "image_embs": image_embs,
+                "image_filename": image_filename
+            }
+
+class MobileNetV3Mapper(BaseMapper):
+    # load an img encoder model
+    def __init__(self,  *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model,self.preprocessor = create_model_mobilenet()
+        self.model.eval()
+        self.model.to(self.device)
+
+    def __call__(self, item):
+        with torch.no_grad():
+            image_embs = None
+            metadata = None
+            if self.enable_image:
+                image_features = self.model(item["image_tensor"].to(self.device))
+                image_features /= image_features.norm(dim=-1, keepdim=True)
+                image_embs = image_features.cpu().to(torch.float16).numpy()
+                image_filename = item["image_filename"]
+            if self.enable_metadata:
+                metadata = item["metadata"]
+
+
+            return {
+                "image_embs": image_embs,
+                "image_filename": image_filename }
+
+class SSCDMapper(BaseMapper):
+    # load an img encoder model
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        #model, preprocessor = create_model(weight_name='isc_ft_v107', device='cuda')
+        self.model,self.preprocessor = create_model_sscd()
+        self.model.eval()
+        self.model.to(self.device)
+
+
+    def __call__(self, item):
+        with torch.no_grad():
+            image_embs = None
+            text_embs = None
+            image_filename = None
+            text = None
+            metadata = None
+            if self.enable_image:
+                image_features = self.model(item["image_tensor"].to(self.device))
+                image_features /= image_features.norm(dim=-1, keepdim=True)
+                image_embs = image_features.cpu().to(torch.float16).numpy()
+                image_filename = item["image_filename"]
+
+            return {
+                "image_embs": image_embs,
+                "image_filename": image_filename
             }
