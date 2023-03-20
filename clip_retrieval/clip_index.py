@@ -9,7 +9,7 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-def quantize(emb_folder, index_folder, index_name, max_index_memory_usage, current_memory_available, nb_cores):
+def quantize(emb_folder, index_folder, index_name, max_index_memory_usage, current_memory_available, nb_cores, index_key):
     """calls autofaiss to build an index"""
 
     from autofaiss import build_index  # pylint: disable=import-outside-toplevel
@@ -28,6 +28,7 @@ def quantize(emb_folder, index_folder, index_name, max_index_memory_usage, curre
                 max_index_memory_usage=max_index_memory_usage,
                 current_memory_available=current_memory_available,
                 nb_cores=nb_cores,
+                index_key=index_key,
             )
             LOGGER.debug(f"index {index_name} done")
     except Exception as e:  # pylint: disable=broad-except
@@ -44,6 +45,7 @@ def clip_index(
     image_subfolder="img_emb",
     text_subfolder="text_emb",
     nb_cores=None,
+    index_key=None,
 ):
     """indexes clip embeddings using autofaiss"""
 
@@ -55,6 +57,7 @@ def clip_index(
             max_index_memory_usage,
             current_memory_available,
             nb_cores,
+            index_key=index_key
         )
     else:
         print('skipping image index since no image embeddings')
@@ -67,6 +70,7 @@ def clip_index(
             max_index_memory_usage,
             current_memory_available,
             nb_cores,
+            index_key=index_key
         )
     else:
         print('skipping text lindex since no text embeddings')
